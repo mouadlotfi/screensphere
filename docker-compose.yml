@@ -1,0 +1,36 @@
+services:
+  screensphere:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Supabase Configuration
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # TMDB API Configuration
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      
+      # Next.js Configuration
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - AUTH_SECRET=${AUTH_SECRET}
+    volumes:
+      # Mount .env.local if it exists for local development
+      - ./.env.local:/app/.env.local:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - screensphere-network
+
+networks:
+  screensphere-network:
+    driver: bridge
