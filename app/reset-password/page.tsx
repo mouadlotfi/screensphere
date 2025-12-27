@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { Suspense, useEffect, useState, FormEvent } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -17,9 +17,10 @@ export default function ResetPasswordPage() {
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { supabase } = useAuth();
 
-  // Handle the recovery token from URL hash and check session
+  // Handle the recovery token from URL (hash or query params) and check session
   useEffect(() => {
     const handleRecoveryToken = async () => {
       try {
@@ -28,16 +29,38 @@ export default function ResetPasswordPage() {
           return;
         }
 
-        // Check if there's a hash fragment with recovery tokens
-        // Supabase redirects with: #access_token=...&refresh_token=...&type=recovery
+        // Method 1: Check for token_hash in query params (PKCE flow)
+        // URL format: /reset-password?token_hash=xxx&type=recovery
+        const tokenHash = searchParams.get('token_hash');
+        const type = searchParams.get('type');
+
+        if (tokenHash && type === 'recovery') {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+
+          if (verifyError) {
+            console.error('OTP verification error:', verifyError);
+            setError('Invalid or expired reset link. Please request a new one.');
+            setCheckingSession(false);
+            return;
+          }
+
+          setIsValidSession(true);
+          setCheckingSession(false);
+          return;
+        }
+
+        // Method 2: Check for hash fragment with tokens (implicit flow)
+        // URL format: /reset-password#access_token=xxx&refresh_token=xxx&type=recovery
         if (typeof window !== 'undefined' && window.location.hash) {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
-          const type = hashParams.get('type');
+          const hashType = hashParams.get('type');
 
-          if (accessToken && refreshToken && type === 'recovery') {
-            // Set the session using the tokens from the URL
+          if (accessToken && refreshToken && hashType === 'recovery') {
             const { error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
@@ -59,24 +82,27 @@ export default function ResetPasswordPage() {
           }
         }
 
-        // No hash tokens, check for existing session
+        // Method 3: Check for existing session (user already authenticated via the link)
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
           setIsValidSession(true);
-        } else {
-          setError('Invalid or expired reset link. Please request a new one.');
+          setCheckingSession(false);
+          return;
         }
+
+        // No valid token or session found
+        setError('Invalid or expired reset link. Please request a new one.');
+        setCheckingSession(false);
       } catch (err) {
         console.error('Recovery token error:', err);
         setError('Unable to verify reset session.');
-      } finally {
         setCheckingSession(false);
       }
     };
 
     handleRecoveryToken();
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -265,5 +291,19 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <p className="text-white/70">Loading...</p>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
