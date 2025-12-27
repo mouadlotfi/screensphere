@@ -29,6 +29,7 @@ export default function Settings() {
   const [deletePassword, setDeletePassword] = useState<string>('');
   const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [showDeletePassword, setShowDeletePassword] = useState<boolean>(false);
 
   const { supabase, user, refreshUser } = useAuth();
   const router = useRouter();
@@ -85,7 +86,6 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update name. Please try again.', {
           position: 'top-center',
         });
-        setIsUpdatingName(false);
         return;
       }
 
@@ -97,9 +97,9 @@ export default function Settings() {
       });
     } catch {
       toast.error('Unable to update name. Please try again.', { position: 'top-center' });
+    } finally {
+      setIsUpdatingName(false);
     }
-
-    setIsUpdatingName(false);
   };
 
   const handleNameSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -128,7 +128,6 @@ export default function Settings() {
 
       if (verifyError) {
         toast.error('Current password is incorrect.', { position: 'top-center' });
-        setIsSubmitting(false);
         return;
       }
 
@@ -138,7 +137,6 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update password. Please try again.', {
           position: 'top-center',
         });
-        setIsSubmitting(false);
         return;
       }
 
@@ -148,9 +146,9 @@ export default function Settings() {
       setConfirmPassword('');
     } catch {
       toast.error('Unable to update password. Please try again.', { position: 'top-center' });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -185,7 +183,6 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update email. Please try again.', {
           position: 'top-center',
         });
-        setIsUpdatingEmail(false);
         return;
       }
 
@@ -195,9 +192,9 @@ export default function Settings() {
       setNewEmail('');
     } catch {
       toast.error('Unable to update email. Please try again.', { position: 'top-center' });
+    } finally {
+      setIsUpdatingEmail(false);
     }
-
-    setIsUpdatingEmail(false);
   };
 
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -487,15 +484,34 @@ export default function Settings() {
                 <label htmlFor="delete-password" className="text-sm font-medium text-white">
                   Enter your password to confirm
                 </label>
-                <input
-                  id="delete-password"
-                  type="password"
-                  value={deletePassword}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDeletePassword(event.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full rounded-lg border border-red-600/40 bg-red-600/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/40"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="delete-password"
+                    type={showDeletePassword ? 'text' : 'password'}
+                    value={deletePassword}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDeletePassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full rounded-lg border border-red-600/40 bg-red-600/10 px-4 py-2 pr-12 text-white placeholder:text-white/40 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword(!showDeletePassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                    aria-label={showDeletePassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showDeletePassword ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-3">
