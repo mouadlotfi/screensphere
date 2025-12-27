@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchTmdb, CACHE_TIMES } from '@/lib/tmdb';
 import type { MoviesResponse, ErrorWithStatus } from '@/lib/types';
 
-// Enable ISR for this route
-export const revalidate = CACHE_TIMES.UPCOMING;
+// Enable ISR for this route (30 minutes)
+export const revalidate = 1800;
 
 export async function GET(request: NextRequest): Promise<NextResponse<MoviesResponse | { error: string }>> {
   const { searchParams } = new URL(request.url);

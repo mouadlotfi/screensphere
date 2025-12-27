@@ -6,8 +6,8 @@ interface MovieParams {
   movieId: string;
 }
 
-// Enable ISR for movie details - they rarely change
-export const revalidate = CACHE_TIMES.MOVIE_DETAILS;
+// Enable ISR for movie details - they rarely change (1 hour)
+export const revalidate = 3600;
 
 export async function GET(
   _request: NextRequest,

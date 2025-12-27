@@ -6,8 +6,8 @@ interface MovieParams {
   movieId: string;
 }
 
-// Enable ISR for video data
-export const revalidate = CACHE_TIMES.MOVIE_DETAILS;
+// Enable ISR for video data (1 hour)
+export const revalidate = 3600;
 
 export async function GET(
   _request: NextRequest,
