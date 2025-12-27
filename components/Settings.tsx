@@ -7,16 +7,27 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function Settings() {
   const searchParams = useSearchParams();
+
+  // Name update state
+  const [newName, setNewName] = useState<string>('');
+  const [isUpdatingName, setIsUpdatingName] = useState<boolean>(false);
+
+  // Password update state
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Email update state
   const [newEmail, setNewEmail] = useState<string>('');
   const [isUpdatingEmail, setIsUpdatingEmail] = useState<boolean>(false);
+
+  // Delete account state
   const [deletePassword, setDeletePassword] = useState<string>('');
   const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const { supabase, user } = useAuth();
+
+  const { supabase, user, refreshUser } = useAuth();
   const router = useRouter();
 
   const isFormValid = useMemo(
@@ -24,16 +35,73 @@ export default function Settings() {
     [confirmPassword, currentPassword, newPassword],
   );
 
-  // Show success message if redirected after email change
+  // Initialize name field with current user name
+  useEffect(() => {
+    if (user?.name) {
+      setNewName(user.name);
+    }
+  }, [user?.name]);
+
+  // Show success message if redirected after email change and refresh user data
   useEffect(() => {
     if (searchParams.get('email_changed') === 'true') {
+      // Refresh user data to get the updated email
+      refreshUser();
       toast.success('Your email address has been updated successfully!', {
         position: 'top-center',
       });
       // Clean up the URL
       router.replace('/settings');
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, refreshUser]);
+
+  const updateName = async () => {
+    if (!newName || !newName.trim()) {
+      toast.error('Please enter a name.');
+      return;
+    }
+
+    if (newName.trim() === user?.name) {
+      toast.error('This is already your current name.');
+      return;
+    }
+
+    try {
+      setIsUpdatingName(true);
+
+      if (!supabase || !user) {
+        toast.error('You must be signed in to update your name.');
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        data: { name: newName.trim() },
+      });
+
+      if (error) {
+        toast.error(error.message || 'Unable to update name. Please try again.', {
+          position: 'top-center',
+        });
+        return;
+      }
+
+      // Refresh user data to reflect the change
+      await refreshUser();
+
+      toast.success('Name updated successfully!', {
+        position: 'top-center',
+      });
+    } catch (error) {
+      toast.error('Unable to update name. Please try again.', { position: 'top-center' });
+    } finally {
+      setIsUpdatingName(false);
+    }
+  };
+
+  const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updateName();
+  };
 
   const updatePassword = async () => {
     if (!isFormValid) {
@@ -192,68 +260,103 @@ export default function Settings() {
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center px-4">
       <div className="w-full rounded-2xl border border-white/10 bg-neutral-900/80 p-8 shadow-2xl">
-        <h2 className="text-3xl font-semibold text-white">Update password</h2>
+        {/* Profile Section */}
+        <h2 className="text-3xl font-semibold text-white">Profile</h2>
         <p className="mt-2 text-sm text-white/60">
-          Strengthen your account by choosing a unique passphrase. Your new password needs at least eight characters.
+          Update your display name. This is how you&apos;ll appear across ScreenSphere.
         </p>
 
-        <form
-          className="mt-6 space-y-5"
-          onSubmit={handleSubmit}
-        >
+        <form className="mt-6 space-y-5" onSubmit={handleNameSubmit}>
           <div className="space-y-2">
-            <label htmlFor="current-password" className="text-sm font-medium text-white">
-              Current password
+            <label htmlFor="display-name" className="text-sm font-medium text-white">
+              Display name
             </label>
             <input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(event.target.value)}
+              id="display-name"
+              type="text"
+              value={newName}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNewName(event.target.value)}
               className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-              placeholder="Enter your current password"
+              placeholder="Enter your display name"
+              required
             />
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <label htmlFor="new-password" className="text-sm font-medium text-white">
-                New password
-              </label>
-              <input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNewPassword(event.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-                placeholder="Create a new password"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="confirm-password" className="text-sm font-medium text-white">
-                Confirm password
-              </label>
-              <input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-                placeholder="Repeat new password"
-              />
-            </div>
           </div>
 
           <button
             type="submit"
-            disabled={!isFormValid || isSubmitting}
+            disabled={!newName || newName.trim() === user?.name || isUpdatingName}
             className="w-full rounded-full bg-cyan-600 px-6 py-3 text-sm font-semibold text-black transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-cyan-900 disabled:text-white/50"
           >
-            {isSubmitting ? 'Updating…' : 'Update password'}
+            {isUpdatingName ? 'Updating…' : 'Update name'}
           </button>
         </form>
 
+        {/* Password Section */}
+        <div className="mt-12 border-t border-white/10 pt-8">
+          <h2 className="text-3xl font-semibold text-white">Update password</h2>
+          <p className="mt-2 text-sm text-white/60">
+            Strengthen your account by choosing a unique passphrase. Your new password needs at least eight characters.
+          </p>
+
+          <form
+            className="mt-6 space-y-5"
+            onSubmit={handleSubmit}
+          >
+            <div className="space-y-2">
+              <label htmlFor="current-password" className="text-sm font-medium text-white">
+                Current password
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(event.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                placeholder="Enter your current password"
+              />
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="new-password" className="text-sm font-medium text-white">
+                  New password
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setNewPassword(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  placeholder="Create a new password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="confirm-password" className="text-sm font-medium text-white">
+                  Confirm password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  placeholder="Repeat new password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!isFormValid || isSubmitting}
+              className="w-full rounded-full bg-cyan-600 px-6 py-3 text-sm font-semibold text-black transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-cyan-900 disabled:text-white/50"
+            >
+              {isSubmitting ? 'Updating…' : 'Update password'}
+            </button>
+          </form>
+        </div>
+
+        {/* Email Section */}
         <div className="mt-12 border-t border-white/10 pt-8">
           <h2 className="text-3xl font-semibold text-white">Update email address</h2>
           <p className="mt-2 text-sm text-white/60">
@@ -299,6 +402,7 @@ export default function Settings() {
           </form>
         </div>
 
+        {/* Danger Zone */}
         <div className="mt-12 border-t border-white/10 pt-8">
           <h3 className="text-lg font-semibold text-red-400">Danger Zone</h3>
           <p className="mt-2 text-sm text-white/60">

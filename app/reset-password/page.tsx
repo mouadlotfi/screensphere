@@ -19,31 +19,63 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const { supabase } = useAuth();
 
-  // Check if user has a valid recovery session
+  // Handle the recovery token from URL hash and check session
   useEffect(() => {
-    const checkSession = async () => {
+    const handleRecoveryToken = async () => {
       try {
         if (!supabase) {
-          setError('Unable to initialize authentication.');
+          // Wait for supabase to initialize
           return;
         }
 
+        // Check if there's a hash fragment with recovery tokens
+        // Supabase redirects with: #access_token=...&refresh_token=...&type=recovery
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const type = hashParams.get('type');
+
+          if (accessToken && refreshToken && type === 'recovery') {
+            // Set the session using the tokens from the URL
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) {
+              console.error('Session error:', sessionError);
+              setError('Invalid or expired reset link. Please request a new one.');
+              setCheckingSession(false);
+              return;
+            }
+
+            // Clear the hash from the URL for security
+            window.history.replaceState(null, '', window.location.pathname);
+
+            setIsValidSession(true);
+            setCheckingSession(false);
+            return;
+          }
+        }
+
+        // No hash tokens, check for existing session
         const { data: { session } } = await supabase.auth.getSession();
 
-        // User should have a session after clicking the reset link
         if (session) {
           setIsValidSession(true);
         } else {
           setError('Invalid or expired reset link. Please request a new one.');
         }
       } catch (err) {
+        console.error('Recovery token error:', err);
         setError('Unable to verify reset session.');
       } finally {
         setCheckingSession(false);
       }
     };
 
-    checkSession();
+    handleRecoveryToken();
   }, [supabase]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

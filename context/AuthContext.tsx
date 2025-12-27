@@ -12,6 +12,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<MappedUser | null>;
   logout: () => Promise<void>;
   register: (data: { name: string; email: string; password: string }) => Promise<void>;
+  refreshUser: () => Promise<void>;
   loading: boolean;
   check: () => boolean;
   getAuthToken: () => string | null;
@@ -79,12 +80,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initialise();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!isMounted) {
         return;
       }
-      setSession(nextSession);
-      setUser(mapSupabaseUser(nextSession?.user ?? null) ?? null);
+
+      // Handle user updates (email change, profile update, etc.)
+      if (event === 'USER_UPDATED' && nextSession?.user) {
+        // Force refresh the user data from Supabase
+        const { data: { user: freshUser } } = await supabase.auth.getUser();
+        setSession(nextSession);
+        setUser(mapSupabaseUser(freshUser ?? nextSession.user) ?? null);
+      } else {
+        setSession(nextSession);
+        setUser(mapSupabaseUser(nextSession?.user ?? null) ?? null);
+      }
+
       setLoading(false);
     });
 
@@ -153,6 +164,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(null);
   }, [supabase]);
 
+  // Force refresh user data from Supabase
+  const refreshUser = useCallback(async () => {
+    if (!supabase) {
+      return;
+    }
+
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (freshUser) {
+      setUser(mapSupabaseUser(freshUser) ?? null);
+    }
+  }, [supabase]);
+
   const check = useCallback(() => Boolean(session?.user), [session]);
 
   const getAuthToken = useCallback(() => session?.access_token ?? null, [session]);
@@ -165,11 +188,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       login,
       logout,
       register,
+      refreshUser,
       loading,
       check,
       getAuthToken,
     }),
-    [user, session, supabase, login, logout, register, loading, check, getAuthToken],
+    [user, session, supabase, login, logout, register, refreshUser, loading, check, getAuthToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
