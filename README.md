@@ -1,156 +1,130 @@
-# 🎬 ScreenSphere 
+# ScreenSphere
 
-A modern movie discovery and favorites platform built with Next.js 15, Supabase, and TMDB API.
+A modern movie discovery platform built with Next.js 16, React 19, Supabase, and the TMDB API.
 
-## ✨ Features
+## Features
 
-- 🎭 **Movie Discovery**: Browse trending, popular, and upcoming movies
-- 🔍 **Real-time Search**: Search movies with instant results and release years
-- ❤️ **Favorites System**: Save and manage your favorite movies
-- 👤 **User Authentication**: Secure sign-up/sign-in with email confirmation
-- 📱 **Responsive Design**: Beautiful dark theme that works on all devices
-- 🐳 **Docker Ready**: One-command deployment with Docker Compose
+- **Movie Discovery** - Browse trending, popular, top-rated, and upcoming movies
+- **Search** - Real-time search with debouncing and instant results
+- **Favorites** - Save movies to your personal collection
+- **Authentication** - Secure email/password auth with Supabase
+- **Responsive** - Mobile-first dark theme design
+- **PWA Ready** - Installable progressive web app with service worker
 
-## 🚀 Quick Start
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, TailwindCSS |
+| Database | Supabase (PostgreSQL) |
+| Auth | Supabase Auth |
+| API | TMDB API |
+| Language | TypeScript |
+| Runtime | Bun |
+
+## Getting Started
 
 ### Prerequisites
-- Node.js 18.17+
-- TMDB API key ([Get one here](https://www.themoviedb.org/settings/api))
-- Supabase project ([Create one here](https://supabase.com))
 
-### 1. Clone and Install
+- [Bun](https://bun.sh)
+- [TMDB API Key](https://www.themoviedb.org/settings/api)
+- [Supabase Project](https://supabase.com)
+
+### Installation
+
 ```bash
-git clone https://github.com/arfadex/screensphere.git
+git clone https://github.com/mouadlotfi/screensphere.git
 cd screensphere
-npm install
+bun install
 ```
 
-### 2. Environment Setup
-Create `.env.local`:
-```bash
-TMDB_API_KEY=your_tmdb_api_key_here
-AUTH_SECRET=your_auth_secret
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+### Environment Variables
+
+Create `.env.local` in the project root:
+
+```env
+TMDB_API_KEY=your_tmdb_api_key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-### 3. Database Setup
-Run this SQL in your Supabase SQL Editor:
-```sql
--- Create profiles table
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT,
-  email TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Database Setup
 
--- Enable Row Level Security
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+Copy the contents of [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql) and run it in the [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql).
 
--- RLS Policies
-CREATE POLICY "Users can view their own profile"
-  ON public.profiles
-  FOR SELECT
-  USING (auth.uid() = id);
+This creates:
+- `profiles` table with RLS policies
+- `favorites` table with RLS policies  
+- Auto-create profile trigger on user signup
+- Auto-update `updated_at` timestamps
 
-CREATE POLICY "Users can update their own profile"
-  ON public.profiles
-  FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- Create trigger function to auto-create profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, name, email)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'name', ''),
-    NEW.email
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger to execute the function on new user creation
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
-
--- Create favorites table (for app functionality)
-CREATE TABLE IF NOT EXISTS public.favorites (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  tmdb_id TEXT NOT NULL,
-  title TEXT NOT NULL DEFAULT '',
-  overview TEXT NOT NULL DEFAULT '',
-  release_date TEXT NOT NULL DEFAULT '1900-01-01',
-  poster_path TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, tmdb_id)
-);
-
--- Indexes for favorites
-CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON public.favorites(user_id);
-CREATE INDEX IF NOT EXISTS idx_favorites_tmdb_id ON public.favorites(tmdb_id);
-
--- Enable RLS on favorites
-ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for favorites
-CREATE POLICY "Users can manage their own favorites"
-  ON public.favorites
-  FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Auto-update trigger for updated_at
-CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER set_profiles_updated_at
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_updated_at();
-
-CREATE TRIGGER set_favorites_updated_at
-  BEFORE UPDATE ON public.favorites
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_updated_at();
-```
-
-### 4. Run the App
-```bash
-npm run dev
-```
-Visit [http://localhost:3000](http://localhost:3000)
-
-## 🐳 Docker Deployment
+### Run Development Server
 
 ```bash
-# Quick start with Docker
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## Docker
+
+```bash
 docker-compose up --build
-
-# Access at http://localhost:3000
 ```
 
-## 📄 License
+## Project Structure
 
-This project is licensed under the GNU General Public License.
+```
+screensphere/
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API routes
+│   ├── auth/              # Auth callback handlers
+│   ├── genre/[genre]/     # Genre pages (popular, trending, etc.)
+│   ├── movie/[movieId]/   # Movie details page
+│   └── ...                # Other pages (sign-in, sign-up, settings)
+├── components/            # React components
+│   ├── Main.tsx          # Hero slider
+│   ├── Movie.tsx         # Movie card
+│   ├── Navbar.tsx        # Navigation with search
+│   ├── Row.tsx           # Horizontal movie row
+│   └── ...
+├── context/              # React context providers
+│   ├── AuthContext.tsx   # Authentication state
+│   └── FavoritesContext.tsx
+├── lib/                  # Utilities and configurations
+│   ├── supabase/        # Supabase client setup
+│   ├── types.ts         # Shared TypeScript types
+│   ├── tmdb.ts          # TMDB API client
+│   └── ...
+├── supabase/            # Database migrations
+│   └── migrations/
+└── public/              # Static assets
+```
 
----
+## API Routes
 
-**⭐ Star this repository if you found it helpful!**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/movies/popular` | GET | Popular movies |
+| `/api/movies/trending` | GET | Trending movies |
+| `/api/movies/upcoming` | GET | Upcoming releases |
+| `/api/movies/top_rated` | GET | Top rated movies |
+| `/api/movie/[id]` | GET | Movie details |
+| `/api/search?q=` | GET | Search movies |
+| `/api/add-to-favorites` | POST | Add to favorites |
+| `/api/movies` | GET | User's saved movies |
+
+## Scripts
+
+```bash
+bun dev      # Start development server
+bun build    # Build for production
+bun start    # Start production server
+bun lint     # Run ESLint
+```
+
+## License
+
+[GNU General Public License](LICENSE)
