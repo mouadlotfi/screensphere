@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Settings from '@/components/Settings';
 import { useAuth } from '@/context/AuthContext';
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -28,4 +28,14 @@ export default function SettingsPage() {
   }
 
   return <Settings />;
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={<p className="py-20 text-center text-white/70">Preparing your account settings…</p>}
+    >
+      <SettingsContent />
+    </Suspense>
+  );
 }

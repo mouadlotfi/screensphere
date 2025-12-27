@@ -69,14 +69,14 @@ export default function Settings() {
       return;
     }
 
+    if (!supabase || !user) {
+      toast.error('You must be signed in to update your name.');
+      return;
+    }
+
+    setIsUpdatingName(true);
+
     try {
-      setIsUpdatingName(true);
-
-      if (!supabase || !user) {
-        toast.error('You must be signed in to update your name.');
-        return;
-      }
-
       const { error } = await supabase.auth.updateUser({
         data: { name: newName.trim() },
       });
@@ -85,6 +85,7 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update name. Please try again.', {
           position: 'top-center',
         });
+        setIsUpdatingName(false);
         return;
       }
 
@@ -94,11 +95,11 @@ export default function Settings() {
       toast.success('Name updated successfully!', {
         position: 'top-center',
       });
-    } catch (error) {
+    } catch {
       toast.error('Unable to update name. Please try again.', { position: 'top-center' });
-    } finally {
-      setIsUpdatingName(false);
     }
+
+    setIsUpdatingName(false);
   };
 
   const handleNameSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -112,13 +113,14 @@ export default function Settings() {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      if (!supabase || !user?.email) {
-        toast.error('You must be signed in to update your password.');
-        return;
-      }
+    if (!supabase || !user?.email) {
+      toast.error('You must be signed in to update your password.');
+      return;
+    }
 
+    setIsSubmitting(true);
+
+    try {
       const { error: verifyError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
@@ -126,6 +128,7 @@ export default function Settings() {
 
       if (verifyError) {
         toast.error('Current password is incorrect.', { position: 'top-center' });
+        setIsSubmitting(false);
         return;
       }
 
@@ -135,6 +138,7 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update password. Please try again.', {
           position: 'top-center',
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -142,11 +146,11 @@ export default function Settings() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error) {
+    } catch {
       toast.error('Unable to update password. Please try again.', { position: 'top-center' });
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -165,14 +169,14 @@ export default function Settings() {
       return;
     }
 
+    if (!supabase || !user) {
+      toast.error('You must be signed in to update your email.');
+      return;
+    }
+
+    setIsUpdatingEmail(true);
+
     try {
-      setIsUpdatingEmail(true);
-
-      if (!supabase || !user) {
-        toast.error('You must be signed in to update your email.');
-        return;
-      }
-
       const { error } = await supabase.auth.updateUser({
         email: newEmail.trim(),
       });
@@ -181,6 +185,7 @@ export default function Settings() {
         toast.error(error.message || 'Unable to update email. Please try again.', {
           position: 'top-center',
         });
+        setIsUpdatingEmail(false);
         return;
       }
 
@@ -188,11 +193,11 @@ export default function Settings() {
         position: 'top-center',
       });
       setNewEmail('');
-    } catch (error) {
+    } catch {
       toast.error('Unable to update email. Please try again.', { position: 'top-center' });
-    } finally {
-      setIsUpdatingEmail(false);
     }
+
+    setIsUpdatingEmail(false);
   };
 
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
